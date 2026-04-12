@@ -97,6 +97,18 @@ class TestClassifyEndpoint:
         # With no existing tags, all suggestions are new
         assert len(data["new_tags"]) == 2
 
+    def test_classify_returns_503_when_model_not_loaded(
+        self, client, mock_classifier, sample_image_bytes
+    ):
+        mock_classifier.is_loaded = False
+        mock_classifier._load_error = "401 Unauthorized — gated model requires HF token"
+        response = client.post(
+            "/api/v1/classify",
+            files={"image": ("test.jpg", sample_image_bytes, "image/jpeg")},
+        )
+        assert response.status_code == 503
+        assert "not loaded" in response.json()["detail"]
+
 
 class TestAuthMiddleware:
     def test_auth_enabled_rejects_without_key(self):
@@ -113,6 +125,7 @@ class TestAuthMiddleware:
         classifier_mock = MagicMock(spec=ImageClassifier)
         classifier_mock.is_loaded = True
         classifier_mock.model_name = "test-model"
+        classifier_mock._load_error = None
 
         dependencies._classifier = classifier_mock
         dependencies._image_processor = ImageProcessor(max_dimension=512)

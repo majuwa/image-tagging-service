@@ -51,6 +51,17 @@ async def classify_image(
     # Scale image
     scaled_image = image_processor.scale_image(image_data)
 
+    # Guard: model must be loaded
+    if not classifier.is_loaded:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Model '{settings.model_name}' is not loaded. "
+                f"Reason: {classifier._load_error or 'unknown'}. "  # noqa: SLF001
+                "See service logs for setup instructions."
+            ),
+        )
+
     # Classify
     existing_dicts = [{"path": t.path} for t in parsed_tags]
     suggestions = classifier.classify(scaled_image, existing_dicts, max_new_tags)

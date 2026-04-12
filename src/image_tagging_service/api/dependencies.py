@@ -19,7 +19,11 @@ def get_classifier() -> ImageClassifier:
     global _classifier  # noqa: PLW0603
     if _classifier is None:
         settings = get_settings()
-        _classifier = ImageClassifier(model_name=settings.model_name, device=settings.device)
+        _classifier = ImageClassifier(
+            model_name=settings.model_name,
+            device=settings.device,
+            hf_token=settings.hf_token,
+        )
     return _classifier
 
 

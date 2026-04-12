@@ -33,6 +33,7 @@ def mock_classifier():
     classifier = MagicMock(spec=ImageClassifier)
     classifier.is_loaded = True
     classifier.model_name = "test-model"
+    classifier._load_error = None
     classifier.classify.return_value = [
         {"path": ["Nature", "Animals", "Birds"], "confidence": 0.95},
         {"path": ["Weather", "Sunny"], "confidence": 0.8},

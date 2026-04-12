@@ -19,7 +19,24 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("starting_service", model=settings.model_name)
 
     classifier = get_classifier()
-    classifier.load_model()
+    try:
+        classifier.load_model()
+    except Exception as exc:  # noqa: BLE001
+        classifier._load_error = str(exc)  # noqa: SLF001
+        logger.warning(
+            "model_load_failed",
+            model=settings.model_name,
+            error=str(exc),
+            hint=(
+                "Gemma 4 is a gated model — accept the license at "
+                "https://huggingface.co/google/gemma-4-4b-it "
+                "then set ITS_HF_TOKEN (or HF_TOKEN) to your HuggingFace token."
+            ),
+        )
+        logger.warning(
+            "service_degraded",
+            detail="classify endpoint will return 503 until model is available",
+        )
 
     yield
 

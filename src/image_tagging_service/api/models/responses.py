@@ -24,6 +24,7 @@ class HealthResponse(BaseModel):
     status: str  # "healthy" or "degraded"
     model_loaded: bool
     model_name: str | None
+    model_error: str | None = Field(None, description="Load error message when model is not loaded")
     version: str
 
 

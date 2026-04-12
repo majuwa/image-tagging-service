@@ -1,4 +1,6 @@
-from pydantic import Field
+import os
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +15,18 @@ class Settings(BaseSettings):
     # Model
     model_name: str = "google/gemma-4-4b-it"
     device: str = "auto"  # auto, cpu, cuda, mps
+    # HuggingFace token for gated models (e.g. Gemma 4).
+    # Also read from the standard HF_TOKEN / HUGGING_FACE_HUB_TOKEN env vars.
+    hf_token: str | None = None
+
+    @model_validator(mode="after")
+    def _resolve_hf_token(self) -> "Settings":
+        """Fall back to standard HuggingFace env vars when ITS_HF_TOKEN is unset."""
+        if not self.hf_token:
+            self.hf_token = os.environ.get("HF_TOKEN") or os.environ.get(
+                "HUGGING_FACE_HUB_TOKEN"
+            )
+        return self
 
     # Image processing
     max_image_dimension: int = 1024

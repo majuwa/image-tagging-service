@@ -13,7 +13,8 @@ async def health_check(
     return HealthResponse(
         status="healthy" if classifier.is_loaded else "degraded",
         model_loaded=classifier.is_loaded,
-        model_name=classifier.model_name if classifier.is_loaded else None,
+        model_name=classifier.model_name,
+        model_error=classifier._load_error,  # noqa: SLF001
         version="0.1.0",
     )
 

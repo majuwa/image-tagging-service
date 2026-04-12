@@ -8,12 +8,14 @@ logger = structlog.get_logger()
 
 
 class ImageClassifier:
-    def __init__(self, model_name: str, device: str = "auto"):
+    def __init__(self, model_name: str, device: str = "auto", hf_token: str | None = None):
         self.model_name = model_name
         self.device = device
+        self.hf_token = hf_token
         self.model = None
         self.processor = None
         self._loaded = False
+        self._load_error: str | None = None
 
     def load_model(self) -> None:
         """Load the model and processor. Called on startup."""
@@ -22,14 +24,17 @@ class ImageClassifier:
         logger.info("loading_model", model=self.model_name)
 
         device_map = self.device if self.device != "auto" else "auto"
+        token = self.hf_token or None
 
-        self.processor = AutoProcessor.from_pretrained(self.model_name)
+        self.processor = AutoProcessor.from_pretrained(self.model_name, token=token)
         self.model = AutoModelForImageTextToText.from_pretrained(
             self.model_name,
             device_map=device_map,
             torch_dtype=torch.bfloat16,
+            token=token,
         )
         self._loaded = True
+        self._load_error = None
         logger.info("model_loaded", model=self.model_name)
 
     @property
