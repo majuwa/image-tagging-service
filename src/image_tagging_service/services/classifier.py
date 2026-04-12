@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 
 import structlog
@@ -19,7 +21,10 @@ class ImageClassifier:
 
     def load_model(self) -> None:
         """Load the model and processor. Called on startup."""
-        from transformers import AutoModelForImageTextToText, AutoProcessor
+        # AutoModelForMultimodalLM is required for Gemma 4 image support.
+        # AutoModelForCausalLM works for text-only; AutoModelForImageTextToText
+        # is the wrong class and does not exist for this model family.
+        from transformers import AutoModelForMultimodalLM, AutoProcessor
 
         logger.info("loading_model", model=self.model_name)
 
@@ -27,10 +32,10 @@ class ImageClassifier:
         token = self.hf_token or None
 
         self.processor = AutoProcessor.from_pretrained(self.model_name, token=token)
-        self.model = AutoModelForImageTextToText.from_pretrained(
+        self.model = AutoModelForMultimodalLM.from_pretrained(
             self.model_name,
             device_map=device_map,
-            torch_dtype=torch.bfloat16,
+            torch_dtype="auto",
             token=token,
         )
         self._loaded = True
@@ -84,11 +89,17 @@ class ImageClassifier:
             "JSON output:"
         )
 
+        # Encode PIL image as base64 data URL (most reliable for local images)
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        image_data_url = f"data:image/jpeg;base64,{b64}"
+
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "image", "image": image},
+                    {"type": "image", "url": image_data_url},
                     {"type": "text", "text": prompt},
                 ],
             }
@@ -96,21 +107,29 @@ class ImageClassifier:
 
         inputs = self.processor.apply_chat_template(
             messages,
-            add_generation_prompt=True,
             tokenize=True,
             return_dict=True,
             return_tensors="pt",
+            add_generation_prompt=True,
+            enable_thinking=False,
         ).to(self.model.device)
+
+        input_len = inputs["input_ids"].shape[-1]
 
         with torch.inference_mode():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=2048,
-                do_sample=False,
+                do_sample=True,
+                temperature=1.0,
+                top_p=0.95,
+                top_k=64,
             )
 
-        generated = outputs[0][inputs["input_ids"].shape[1] :]
-        response_text = self.processor.decode(generated, skip_special_tokens=True).strip()
+        # Decode only the newly generated tokens
+        raw_response = self.processor.decode(outputs[0][input_len:], skip_special_tokens=False)
+        # parse_response strips Gemma 4 special tokens (thinking, turn delimiters)
+        response_text = self.processor.parse_response(raw_response)
 
         logger.debug("llm_response", response=response_text)
 
@@ -142,3 +161,4 @@ class ImageClassifier:
         except (json.JSONDecodeError, ValueError) as e:
             logger.warning("json_parse_error", error=str(e), response=text[:200])
             return []
+

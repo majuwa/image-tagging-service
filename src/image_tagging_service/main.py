@@ -28,9 +28,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             model=settings.model_name,
             error=str(exc),
             hint=(
-                "Gemma 4 is a gated model — accept the license at "
-                "https://huggingface.co/google/gemma-4-4b-it "
-                "then set ITS_HF_TOKEN (or HF_TOKEN) to your HuggingFace token."
+                f"Could not load '{settings.model_name}'. "
+                "Check model name, available disk space, and internet connection. "
+                "Model page: https://huggingface.co/google/gemma-4-E2B-it"
             ),
         )
         logger.warning(

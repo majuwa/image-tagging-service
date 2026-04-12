@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Model
-    model_name: str = "google/gemma-4-4b-it"
+    model_name: str = "google/gemma-4-E2B-it"
     device: str = "auto"  # auto, cpu, cuda, mps
     # HuggingFace token for gated models (e.g. Gemma 4).
     # Also read from the standard HF_TOKEN / HUGGING_FACE_HUB_TOKEN env vars.
