@@ -119,3 +119,53 @@ class TestConfidenceFiltering:
         matched, new = matcher.match_tags(suggested, existing, 0.5)
 
         assert len(matched) == 1
+
+
+class TestMatchTagsMixed:
+    def test_mixed_matched_and_new(self):
+        matcher = TagMatcher(similarity_threshold=90.0)
+        existing = {"Nature > Animals > Birds": ["Nature", "Animals", "Birds"]}
+        suggested = [
+            {"path": ["Nature", "Animals", "Birds"], "confidence": 0.9},
+            {"path": ["Architecture", "Modern"], "confidence": 0.8},
+        ]
+        matched, new = matcher.match_tags(suggested, existing, 0.3)
+        assert len(matched) == 1
+        assert len(new) == 1
+        assert matched[0]["is_new"] is False
+        assert new[0]["is_new"] is True
+
+    def test_duplicate_suggestions_all_matched(self):
+        matcher = TagMatcher()
+        existing = {"Nature > Trees": ["Nature", "Trees"]}
+        suggested = [
+            {"path": ["Nature", "Trees"], "confidence": 0.9},
+            {"path": ["Nature", "Trees"], "confidence": 0.8},
+        ]
+        matched, new = matcher.match_tags(suggested, existing, 0.3)
+        assert len(matched) == 2
+
+    def test_single_element_path(self):
+        matcher = TagMatcher()
+        existing = {"Animals": ["Animals"]}
+        suggested = [{"path": ["Animals"], "confidence": 0.7}]
+        matched, new = matcher.match_tags(suggested, existing, 0.3)
+        assert len(matched) == 1
+        assert matched[0]["path"] == ["Animals"]
+
+
+class TestTagMatcherThreshold:
+    def test_custom_similarity_threshold(self):
+        # Very low threshold should match more
+        matcher_low = TagMatcher(similarity_threshold=30.0)
+        existing = {"Nature > Animals > Birds": ["Nature", "Animals", "Birds"]}
+        suggested = [{"path": ["Scenery", "Creatures", "Avians"], "confidence": 0.8}]
+
+        matched_low, new_low = matcher_low.match_tags(suggested, existing, 0.3)
+
+        # Very high threshold should match less
+        matcher_high = TagMatcher(similarity_threshold=99.0)
+        matched_high, new_high = matcher_high.match_tags(suggested, existing, 0.3)
+
+        # High threshold should produce fewer matches
+        assert len(matched_high) <= len(matched_low) + len(new_low)

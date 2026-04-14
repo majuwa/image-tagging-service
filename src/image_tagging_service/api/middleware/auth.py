@@ -1,6 +1,6 @@
-from fastapi import HTTPException, Request
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 _SKIP_PATHS = {"/api/v1/health", "/docs", "/openapi.json", "/redoc"}
 
@@ -18,6 +18,6 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
 
         api_key = request.headers.get("X-API-Key")
         if api_key != self.api_key:
-            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
 
         return await call_next(request)

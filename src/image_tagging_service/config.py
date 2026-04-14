@@ -12,9 +12,10 @@ class Settings(BaseSettings):
     port: int = 8000
     debug: bool = False
 
-    # Model
-    model_name: str = "google/gemma-4-E2B-it"
-    device: str = "auto"  # auto, cpu, cuda, mps
+    # Model — points to an OpenAI-compatible LLM API (LM Studio, Ollama, etc.)
+    model_name: str = "gemma-4-e4b-it"
+    llm_base_url: str = "http://127.0.0.1:1234"
+    device: str = "auto"  # kept for backward compat; unused with external LLM
     # HuggingFace token for gated models (e.g. Gemma 4).
     # Also read from the standard HF_TOKEN / HUGGING_FACE_HUB_TOKEN env vars.
     hf_token: str | None = None
@@ -23,13 +24,11 @@ class Settings(BaseSettings):
     def _resolve_hf_token(self) -> "Settings":
         """Fall back to standard HuggingFace env vars when ITS_HF_TOKEN is unset."""
         if not self.hf_token:
-            self.hf_token = os.environ.get("HF_TOKEN") or os.environ.get(
-                "HUGGING_FACE_HUB_TOKEN"
-            )
+            self.hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
         return self
 
     # Image processing
-    max_image_dimension: int = 1024
+    max_image_dimension: int = 512
     supported_formats: list[str] = Field(
         default=["image/jpeg", "image/png", "image/webp"],
     )

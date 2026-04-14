@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from .api.dependencies import get_classifier, get_settings
 from .api.middleware.auth import ApiKeyMiddleware
-from .api.routes import classify, health
+from .api.routes import caption, classify, health, rate, review
 from .config import Settings
 from .core.logging import setup_logging
 
@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     setup_logging(settings.log_level, settings.log_format)
     logger = structlog.get_logger()
-    logger.info("starting_service", model=settings.model_name)
+    logger.info("starting_service", model=settings.model_name, llm_url=settings.llm_base_url)
 
     classifier = get_classifier()
     try:
@@ -26,11 +26,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning(
             "model_load_failed",
             model=settings.model_name,
+            llm_url=settings.llm_base_url,
             error=str(exc),
             hint=(
-                f"Could not load '{settings.model_name}'. "
-                "Check model name, available disk space, and internet connection. "
-                "Model page: https://huggingface.co/google/gemma-4-E2B-it"
+                f"Could not reach LLM service at '{settings.llm_base_url}'. "
+                "Make sure LM Studio / Ollama is running with the model loaded."
             ),
         )
         logger.warning(
@@ -60,8 +60,11 @@ def create_app() -> FastAPI:
     if settings.auth_enabled and settings.api_key:
         app.add_middleware(ApiKeyMiddleware, api_key=settings.api_key)
 
+    app.include_router(caption.router, prefix="/api/v1", tags=["caption"])
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
     app.include_router(classify.router, prefix="/api/v1", tags=["classification"])
+    app.include_router(rate.router, prefix="/api/v1", tags=["rating"])
+    app.include_router(review.router, prefix="/api/v1", tags=["review"])
 
     return app
 

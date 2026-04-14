@@ -28,6 +28,38 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class RatingResponse(BaseModel):
+    """Response from the image rating endpoint."""
+
+    rating: int = Field(..., ge=1, le=5, description="AI-suggested star rating (1–5)")
+    reasoning: str = Field(..., description="Short explanation for the rating")
+    processing_time_ms: int = Field(..., description="Total processing time in milliseconds")
+    model_name: str = Field(..., description="Model used for rating")
+
+
+class ReviewResponse(BaseModel):
+    """Response from the AI photo review endpoint."""
+
+    composition: str = Field(..., description="Analysis of image composition")
+    image_quality: str = Field(..., description="Technical quality assessment")
+    subject: str = Field(..., description="Subject and how it is captured")
+    editing_tips: str = Field(..., description="Specific editing recommendations")
+    mood: str = Field(..., description="Mood and atmosphere of the image")
+    overall: str = Field(..., description="Overall summary and key recommendations")
+    processing_time_ms: int = Field(..., description="Total processing time in milliseconds")
+    model_name: str = Field(..., description="Model used for review")
+
+
+
+class CaptionResponse(BaseModel):
+    """Response from the AI social media caption endpoint."""
+
+    caption: str = Field(..., description="Generated Instagram-style caption")
+    hashtags: str = Field(..., description="Space-separated hashtags (each prefixed with #)")
+    processing_time_ms: int = Field(..., description="Total processing time in milliseconds")
+    model_name: str = Field(..., description="Model used for caption generation")
+
+
 class ModelInfoResponse(BaseModel):
     """Model information response."""
 

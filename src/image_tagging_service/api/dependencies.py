@@ -21,8 +21,7 @@ def get_classifier() -> ImageClassifier:
         settings = get_settings()
         _classifier = ImageClassifier(
             model_name=settings.model_name,
-            device=settings.device,
-            hf_token=settings.hf_token,
+            llm_base_url=settings.llm_base_url,
         )
     return _classifier
 

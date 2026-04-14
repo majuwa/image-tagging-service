@@ -1,6 +1,7 @@
 import json
 import time
 
+import structlog
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..dependencies import get_classifier, get_image_processor, get_settings, get_tag_matcher
@@ -8,6 +9,7 @@ from ..models.requests import HierarchicalTag
 from ..models.responses import ClassifyResponse, TagSuggestion
 
 router = APIRouter()
+logger = structlog.get_logger()
 
 
 @router.post("/classify", response_model=ClassifyResponse)
@@ -22,9 +24,17 @@ async def classify_image(
     settings=Depends(get_settings),
 ) -> ClassifyResponse:
     start_time = time.monotonic()
+    logger.info(
+        "classify_request",
+        filename=image.filename,
+        content_type=image.content_type,
+        max_new_tags=max_new_tags,
+        confidence_threshold=confidence_threshold,
+    )
 
     # Validate content type
     if image.content_type not in settings.supported_formats:
+        logger.warning("unsupported_format", content_type=image.content_type)
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported format: {image.content_type}",
@@ -32,7 +42,9 @@ async def classify_image(
 
     # Validate file size
     image_data = await image.read()
+    logger.info("image_read", size_bytes=len(image_data))
     if len(image_data) > settings.max_upload_size_mb * 1024 * 1024:
+        logger.warning("image_too_large", size_bytes=len(image_data))
         raise HTTPException(
             status_code=413,
             detail=f"Image exceeds {settings.max_upload_size_mb}MB limit",
@@ -45,14 +57,18 @@ async def classify_image(
             HierarchicalTag(**t) if isinstance(t, dict) else HierarchicalTag(path=t)
             for t in tags_raw
         ]
+        logger.info("existing_tags_parsed", count=len(parsed_tags))
     except (json.JSONDecodeError, ValueError) as e:
+        logger.warning("invalid_existing_tags", error=str(e))
         raise HTTPException(status_code=400, detail=f"Invalid existing_tags JSON: {e}") from e
 
     # Scale image
     scaled_image = image_processor.scale_image(image_data)
+    logger.info("image_scaled")
 
     # Guard: model must be loaded
     if not classifier.is_loaded:
+        logger.error("model_not_loaded", error=classifier._load_error)  # noqa: SLF001
         raise HTTPException(
             status_code=503,
             detail=(
@@ -64,13 +80,21 @@ async def classify_image(
 
     # Classify
     existing_dicts = [{"path": t.path} for t in parsed_tags]
+    logger.info("classify_starting")
     suggestions = classifier.classify(scaled_image, existing_dicts, max_new_tags)
+    logger.info("classify_complete", suggestion_count=len(suggestions))
 
     # Match against existing
     flat_existing = tag_matcher.flatten_tag_paths(existing_dicts)
     matched, new = tag_matcher.match_tags(suggestions, flat_existing, confidence_threshold)
 
     elapsed_ms = int((time.monotonic() - start_time) * 1000)
+    logger.info(
+        "classify_response",
+        matched_count=len(matched),
+        new_count=len(new[:max_new_tags]),
+        elapsed_ms=elapsed_ms,
+    )
 
     return ClassifyResponse(
         matched_tags=[TagSuggestion(**m) for m in matched],
