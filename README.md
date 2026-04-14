@@ -144,4 +144,4 @@ See [docs/architecture.md](docs/architecture.md) for detailed architecture docum
 
 ## License
 
-MIT
+GPLv3 unless otherwise specified
